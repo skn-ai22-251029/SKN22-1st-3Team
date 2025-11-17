@@ -69,9 +69,138 @@ docs/                # 문서 및 정리자료
 
 ---
 
+# 시장 트렌드 분석 기준
+
+용어 정리를 일부 발췌해서 설명합니다.
+
+### 1) 관심도 점수
+
+> 0.7 × 네이버 검색량 비중
+> \+ 0.3 × 구글 트렌드 지수  
+>  (구글 데이터가 없으면 네이버 검색량 비중만 사용)
+
+---
+
+### 2) 보급률 (Adoption Rate)
+
+> 보급률(%) =  
+> (해당 모델의 월 판매량 ÷ 같은 기간 전체 시장 판매량) × 100
+
+---
+
+### 3) 블로그 여론 데이터
+
+> 네이버 검색 결과 상위 3개 블로그 글의 본문을 수집한 뒤,  
+> 명사 기반 NLP 토큰화 → 키워드 빈도 계산 → 워드클라우드로 시각화한 것.
+
+즉, 본 프로젝트는 **시장 트렌드 분석 = 관심도 vs 보급률**을 계산하기 위한 과정과, 이를 시각화하여 비교하기 쉽게 하는 것을 목표로 합니다.
+
+---
+
+# ER-Diagram
+
+```mermaid
+erDiagram
+    CAR_MODEL {
+        int model_id PK
+        int danawa_model_id
+        string brand_name
+        string model_name_kr
+        string danawa_model_url
+        datetime created_at
+        datetime updated_at
+    }
+
+    CAR_MODEL_IMAGE {
+        int image_id PK
+        int model_id FK
+        string image_url
+        string local_path
+        string content_type
+        blob image_binary
+        boolean is_primary
+        datetime created_at
+    }
+
+    MODEL_MONTHLY_INTEREST {
+        int id PK
+        int model_id FK
+        date month
+        int naver_search_index
+        int google_trend_index
+        int danawa_pop_rank
+        int danawa_pop_rank_size
+        datetime created_at
+    }
+
+    MODEL_MONTHLY_SALES {
+        int id PK
+        int model_id FK
+        date month
+        int sales_units
+        int market_total_units
+        float adoption_rate
+        string source
+        datetime created_at
+    }
+
+    MARKET_MONTHLY_SUMMARY {
+        int id PK
+        date month
+        string region_code
+        string vehicle_type
+        string segment
+        string fuel_type
+        int registration_count
+        string source
+        datetime created_at
+    }
+
+    BLOG_ARTICLE {
+        int article_id PK
+        int model_id FK
+        date month
+        string search_keyword
+        int rank
+        string title
+        string url
+        string summary
+        string content_plain
+        datetime posted_at
+        datetime collected_at
+    }
+
+    BLOG_TOKEN_MONTHLY {
+        int id PK
+        int model_id FK
+        date month
+        string token
+        int total_count
+        int rank
+        datetime created_at
+    }
+
+    BLOG_WORDCLOUD {
+        int id PK
+        int model_id FK
+        date month
+        string image_path
+        datetime generated_at
+    }
+
+    CAR_MODEL ||--o{ CAR_MODEL_IMAGE : "1:N"
+    CAR_MODEL ||--o{ MODEL_MONTHLY_INTEREST : "1:N"
+    CAR_MODEL ||--o{ MODEL_MONTHLY_SALES : "1:N"
+    CAR_MODEL ||--o{ BLOG_ARTICLE : "1:N"
+    CAR_MODEL ||--o{ BLOG_TOKEN_MONTHLY : "1:N"
+    CAR_MODEL ||--o{ BLOG_WORDCLOUD : "1:N"
+```
+
+---
+
 # ETL 플랜 요약
 
-> 자세한 플랜은 docs/etl_planning.md를 참조하세요.
+> 순서 및 자세한 플랜은 docs/etl_planning.md를 참조하세요.
 
 ### 1) Data Collecting (Raw)
 
@@ -102,9 +231,40 @@ docs/                # 문서 및 정리자료
 
 ---
 
+# 페이지 구성
+
+### 01_Overview.py
+
+최신 월 기준 KPI, 판매량 vs 관심도 TOP N, 선택 모델 상세 요약, 블로그 워드클라우드를 한 화면에서 보여준다.
+
+### 02\_관심도 분석.py
+
+네이버/구글 관심도 기반으로 모델별 인기와 디바이스·성별 상세 지표를 비교한다.
+
+### 03\_보급률 분석.py
+
+다나와 판매량/보급률 데이터를 바탕으로 Top N 모델과 RAW 테이블을 확인한다.
+
+### 04\_상세 분석.py
+
+특정 모델을 선택해 기간별 판매/관심도 추이와 블로그 데이터를 종합적으로 확인한다.
+
+### 05\_시장 포지션.py
+
+판매량·보급률·관심도(네이버+구글)를 결합한 포지션 맵을 시각화한다.
+
+### 99_admin.py
+
+ETL 상태 모니터링, 테이블 카운트/최신 월 확인, ETL 스크립트 수동 실행 UI 제공.
+
+---
+
 # 실행 방법
 
 ### 1. 환경 구성
+
+.env를 생성하여 환경 변수를 먼저 설정해주세요. <br>
+DB connection 정보와 네이버 API 클라이언트 정보가 필요합니다.
 
 ```bash
 conda activate project1
@@ -126,8 +286,4 @@ streamlit run Main.py
 
 ---
 
-# 문서
-
-> docs/README.md 를 참조하세요.
-
----
+25-11-17
